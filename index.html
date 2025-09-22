@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Audio Countdown</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    /* Same styles as before (Liquid Glass theme, pulse, buttons, etc.) */
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      background: linear-gradient(135deg, #0a0a0a, #1c1c1e);
+      background-size: 400% 400%;
+      animation: gradientShift 20s ease infinite;
+    }
+
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .glass { /* glass card */ 
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 1.5em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .title {
+      font-size: 1.6em;
+      font-weight: 700;
+      margin-bottom: 1em;
+      color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 0 12px rgba(0,255,200,0.5);
+    }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 0.8em; margin-bottom: 1.2em; justify-content: center; }
+    label { font-size: 0.9em; color: rgba(255,255,255,0.8); display: flex; flex-direction: column; align-items: center; }
+    input {
+      margin-top: 0.3em; width: 5em; padding: 0.4em; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1);
+      color: #fff; text-align: center; font-size: 1em; outline: none;
+    }
+    button {
+      padding: 0.6em 1.2em; font-size: 1em; border: none; border-radius: 12px;
+      background: linear-gradient(145deg, #3a3a3c, #1c1c1e); color: #fff; font-weight: 600;
+      cursor: pointer; transition: all 0.2s ease-in-out;
+    }
+    button:hover { background: linear-gradient(145deg, #4a4a4c, #2c2c2e); transform: translateY(-1px); }
+    button:active { transform: translateY(1px); }
+    #muteBtn {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(255,255,255,0.15); border-radius: 50%;
+      width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;
+      font-size: 20px;
+    }
+    canvas { border-radius: 16px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); }
+  </style>
+</head>
+<body>
+  <div class="glass">
+    <div id="muteBtn">🔊</div>
+    <div class="title">Audio Countdown</div>
+    <div class="controls">
+      <label>Min <input id="minutes" type="number" min="0" value="5"></label>
+      <label>Sec <input id="seconds" type="number" min="0" max="59" value="0"></label>
+      <label>Announce every (s) <input id="announceInterval" type="number" min="1" value="60"></label>
+    </div>
+    <div class="controls">
+      <button id="startBtn">Start</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="stopBtn">Stop</button>
+    </div>
+    <canvas id="countdown" width="320" height="320"></canvas>
+  </div>
+
+  <!-- Alarm sound -->
+  <audio id="alarm" loop>
+    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const canvas = document.getElementById("countdown");
+    const ctx = canvas.getContext("2d");
+    const minutesInput = document.getElementById("minutes");
+    const secondsInput = document.getElementById("seconds");
+    const announceInput = document.getElementById("announceInterval");
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const muteBtn = document.getElementById("muteBtn");
+    const alarm = document.getElementById("alarm");
+
+    let totalSeconds = 0, remainingSeconds = 0, announceEvery = 60;
+    let running = false, lastTick = 0, muted = false;
+
+    function haptic(pattern) {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    }
+
+    function speak(text) {
+      if (muted) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1;
+      utter.pitch = 1;
+      speechSynthesis.speak(utter);
+    }
+
+    function drawTime(seconds, smoothProgress) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      const timeStr = `${minutes}:${secs.toString().padStart(2, "0")}`;
+
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = 120;
+      const lineWidth = 14;
+
+      const pulse = Math.sin(performance.now() / 500) * 0.5 + 0.5;
+      const urgency = 1 - (smoothProgress || 0);
+      const glow = 10 + (pulse * 15 * urgency);
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, -Math.PI/2, (2 * Math.PI * smoothProgress) - Math.PI/2);
+      ctx.strokeStyle = "rgba(0,255,200,0.9)";
+      ctx.shadowColor = "rgba(0,255,200,0.9)";
+      ctx.shadowBlur = glow;
+      ctx.lineCap = "round";
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.font = "bold 56px -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.fillText(timeStr, centerX, centerY);
+    }
+
+    function animate() {
+      if (!running) return;
+
+      const now = performance.now();
+      const elapsed = (now - lastTick) / 1000;
+
+      let smoothRemaining = remainingSeconds - elapsed;
+      if (smoothRemaining < 0) smoothRemaining = 0;
+
+      const progress = totalSeconds > 0 ? (smoothRemaining / totalSeconds) : 0;
+      drawTime(smoothRemaining, progress);
+
+      if (elapsed >= 1) {
+        lastTick = now;
+        remainingSeconds--;
+
+        if (remainingSeconds <= 0) {
+          running = false;
+          drawTime(0, 0);
+          speak("Time is up!");
+          haptic([300, 100, 300, 100, 600]); // strong end buzz
+          if (!muted) {
+            alarm.currentTime = 0;
+            alarm.play();
+            setTimeout(() => alarm.pause(), 30000);
+          }
+          return;
+        }
+
+        if (remainingSeconds % announceEvery === 0) {
+          const mins = Math.floor(remainingSeconds / 60);
+          const secs = remainingSeconds % 60;
+          let msg = "";
+          if (mins > 0) msg += `${mins} minute${mins !== 1 ? "s" : ""} `;
+          if (secs > 0) msg += `${secs} second${secs !== 1 ? "s" : ""} `;
+          msg += "remaining";
+          speak(msg.trim());
+          haptic(200); // short buzz for announcements
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function startCountdown() {
+      if (running) return;
+      const mins = parseInt(minutesInput.value, 10) || 0;
+      const secs = parseInt(secondsInput.value, 10) || 0;
+      announceEvery = parseInt(announceInput.value, 10) || 60;
+
+      if (remainingSeconds <= 0) {
+        totalSeconds = mins * 60 + secs;
+        remainingSeconds = totalSeconds;
+      }
+
+      if (remainingSeconds > 0) {
+        lastTick = performance.now();
+        running = true;
+        requestAnimationFrame(animate);
+      }
+    }
+
+    function pauseCountdown() { running = false; }
+    function stopCountdown() { running = false; remainingSeconds = 0; drawTime(0,0); alarm.pause(); }
+
+    muteBtn.addEventListener("click", () => {
+      muted = !muted;
+      muteBtn.textContent = muted ? "🔇" : "🔊";
+      if (muted) { speechSynthesis.cancel(); alarm.pause(); }
+    });
+
+    startBtn.addEventListener("click", startCountdown);
+    pauseBtn.addEventListener("click", pauseCountdown);
+    stopBtn.addEventListener("click", stopCountdown);
+
+    drawTime(0, 0);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
+  </script>
+</body>
+</html>
