@@ -1,44 +1,20 @@
-# Audio Countdown App
+# ⏱️ Scroll Timer
 
-This is a **Progressive Web App (PWA)** that runs a modern audio countdown timer with spoken announcements, mute option, and offline alarm.
+A sleek, touch-friendly countdown timer built for mobile devices—especially iPhones. Features scrollable selectors for minutes, seconds, and announcement intervals, plus a glowing progress ring that tracks time visually.
 
-## Files included
-- `index.html` → main app (Liquid Glass design, responsive with viewport fix)
-- `manifest.json` → PWA manifest
-- `service-worker.js` → offline caching
-- `icon-192.png`, `icon-512.png` → app icons
-- embedded offline alarm sound (inside `index.html`)
+## 📱 Features
 
-## Running locally (quick test)
-1. Unzip all files into a folder on your computer.
-2. Open a terminal in that folder and run:
-   ```bash
-   python3 -m http.server 8080
-   ```
-3. On your phone (same Wi-Fi), open:  
-   `http://<your-computer-ip>:8080`
-   (example: `http://192.168.1.20:8080`)
+- Scroll-based pickers for minutes, seconds, and interval announcements
+- Highlight band to center selected values
+- Smooth countdown animation with a circular progress indicator
+- Optional voice announcements at set intervals
+- Responsive layout optimized for vertical mobile screens
+- Elegant design with glowing accents and subtle shadows
 
-## Installing on your phone
-- **iPhone (Safari)**  
-  1. Open the local/hosted site.  
-  2. Tap **Share** → **Add to Home Screen**.  
-  3. The app will appear like a native app.
+## 🚀 Getting Started
 
-- **Android (Chrome/Edge)**  
-  1. Open the site.  
-  2. Tap menu → **Add to Home Screen** or **Install App**.  
+Clone the repo and open `index.html` in your browser:
 
-The app will now run full-screen, offline, with sound and announcements.
-
-## Hosting online (optional)
-For permanent use, you can upload the folder to:
-- GitHub Pages  
-- Netlify  
-- Vercel  
-- Glitch  
-
-Once hosted over HTTPS, you can install it just like a real app.
-
----
-Enjoy your **Audio Countdown** ⏱🎶
+```bash
+git clone https://github.com/your-username/scroll-timer.git
+cd scroll-timer
