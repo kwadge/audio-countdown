@@ -3,16 +3,19 @@ self.addEventListener("install", event => {
     caches.open("audio-countdown-v1").then(cache => {
       return cache.addAll([
         "./index.html",
-        "./manifest.json"
+        "./manifest.json",
+        "./beep.wav", // or "./beep.wav"
+        "./silent.mp3",
+        "./icon-192.png",
+        "./icon-512.png",
+        "./service-worker.js"
       ]);
     })
   );
 });
 
-self.addEventListener("fetch", event => {
-  event.respondWith(
-    caches.match(event.request).then(resp => {
-      return resp || fetch(event.request);
-    })
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(CACHE_FILES))
   );
 });
